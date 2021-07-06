@@ -3,9 +3,7 @@ package common
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 )
 
 type Middleware interface {
@@ -13,10 +11,10 @@ type Middleware interface {
 }
 
 type middleware struct {
-	redisStore *RedisStore
+	redisStore RedisStore
 }
 
-func NewMiddleware(rS *RedisStore) Middleware {
+func NewMiddleware(rS RedisStore) Middleware {
 	return &middleware{redisStore: rS}
 }
 
@@ -27,13 +25,16 @@ type ErrorMessage struct {
 
 func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := r.Header.Get("Authorization")
-		if key == "" {
-			respondJSON(w, http.StatusInternalServerError, &HttpError{"For access needed authorization header", http.StatusInternalServerError})
+		token := r.Header.Get("Authorization")
+		if token == "" {
+			respondJSON(w, http.StatusBadRequest, &ErrorMessage{
+				Message: "Please user Authorization token",
+				Status:  http.StatusBadRequest,
+			})
 			return
 		} else {
-			userId, err := m.redisStore.GetValue(key)
-			if err != nil && strings.Contains(err.Error(), "redis: nil") {
+			userId, err := m.redisStore.GetValue(token)
+			if err != nil && err.Error() == "redis: nil" {
 				respondJSON(w, http.StatusBadRequest, &ErrorMessage{
 					Message: "Your token is expired",
 					Status:  http.StatusBadRequest,
@@ -46,7 +47,6 @@ func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 				})
 				return
 			}
-			fmt.Println(userId)
 			ctx := context.WithValue(r.Context(), "user_id", userId)
 			r = r.WithContext(ctx)
 		}

@@ -5,22 +5,22 @@ import (
 	"time"
 )
 
-type RedisStore struct {
+type RedisConnectStore struct {
 	client *redis.Client
 }
 
-func NewRedisConnect(cf RedisConfig) (*RedisStore, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr: cf.Host + ":" + cf.Port,
-	})
+func NewRedisConnectStore(cfg RedisConfig) (*RedisConnectStore, error) {
+	//connection to redis
+	client := redis.NewClient(&redis.Options{Addr: cfg.Host + ":" + cfg.Port})
 	err := client.Ping().Err()
 	if err != nil {
 		return nil, err
 	}
-	return &RedisStore{client: client}, nil
+	return &RedisConnectStore{client: client}, nil
 }
 
-func (r *RedisStore) Save(key string, value interface{}, t time.Duration) error {
+func (r *RedisConnectStore) Save(key string, value interface{}, t time.Duration) error {
+	//convert to json if all values is only json
 	err := r.client.Set(key, value, t).Err()
 	if err != nil {
 		return err
@@ -28,10 +28,10 @@ func (r *RedisStore) Save(key string, value interface{}, t time.Duration) error 
 	return nil
 }
 
-func (r *RedisStore) GetValue(key string) (string, error) {
-	val, err := r.client.Get(key).Result()
+func (r *RedisConnectStore) Get(key string) (string, error) {
+	value, err := r.client.Get(key).Result()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
-	return val, nil
+	return value, nil
 }

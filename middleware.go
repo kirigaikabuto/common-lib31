@@ -6,19 +6,8 @@ import (
 	"net/http"
 )
 
-
-type User struct {
-	Id        string `json:"id"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Avatar    string `json:"avatar"`
-}
-
-
 type Middleware interface {
-	LoginMiddleware(fn http.Handler) http.Handler
+	LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc
 }
 
 type middleware struct {
@@ -29,19 +18,18 @@ func NewMiddleware(rS *RedisStore) Middleware {
 	return &middleware{redisStore: rS}
 }
 
-func (m *middleware) LoginMiddleware(fn http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Authorization")
 		if key == "" {
 			respondJSON(w, http.StatusInternalServerError, &HttpError{"For access needed authorization header", http.StatusInternalServerError})
 			return
 		}
 		if key != "" {
-			user := &User{}
-			err := m.redisStore.GetValue(key, &user)
+			userId, err := m.redisStore.GetValue(key)
 			if err != nil {
 				errorMessage := err.Error()
-				if err.Error() == "redis: nil" {
+				if errorMessage == "redis: nil" {
 					errorMessage = "Your access key is expired"
 				}
 				respondJSON(w, http.StatusInternalServerError, HttpError{
@@ -50,11 +38,11 @@ func (m *middleware) LoginMiddleware(fn http.Handler) http.Handler {
 				})
 				return
 			}
-			ctx := context.WithValue(r.Context(), "user_id", user.Id)
+			ctx := context.WithValue(r.Context(), "user_id", userId)
 			r = r.WithContext(ctx)
 		}
 		fn.ServeHTTP(w, r)
-	})
+	}
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {

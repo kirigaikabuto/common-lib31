@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/json"
 	"github.com/go-redis/redis"
 	"time"
 )
@@ -21,26 +20,18 @@ func NewRedisConnect(cf RedisConfig) (*RedisStore, error) {
 	return &RedisStore{client: client}, nil
 }
 
-func (r *RedisStore) SetValue(key string, value interface{}, t time.Duration) error {
-	jsonData, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	err = r.client.Set(key, jsonData, t).Err()
+func (r *RedisStore) Save(key string, value interface{}, t time.Duration) error {
+	err := r.client.Set(key, value, t).Err()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *RedisStore) GetValue(key string, src interface{}) error {
+func (r *RedisStore) GetValue(key string) (string, error) {
 	val, err := r.client.Get(key).Result()
 	if err != nil {
-		return err
+		return "", nil
 	}
-	err = json.Unmarshal([]byte(val), src)
-	if err != nil {
-		return err
-	}
-	return nil
+	return val, nil
 }

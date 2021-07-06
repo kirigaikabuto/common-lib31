@@ -31,8 +31,7 @@ func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 		if key == "" {
 			respondJSON(w, http.StatusInternalServerError, &HttpError{"For access needed authorization header", http.StatusInternalServerError})
 			return
-		}
-		if key != "" {
+		} else {
 			userId, err := m.redisStore.GetValue(key)
 			if err != nil && strings.Contains(err.Error(), "redis: nil") {
 				respondJSON(w, http.StatusBadRequest, &ErrorMessage{

@@ -3,7 +3,9 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 )
 
 type Middleware interface {
@@ -32,7 +34,7 @@ func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 		}
 		if key != "" {
 			userId, err := m.redisStore.GetValue(key)
-			if err != nil && err.Error() == "redis: nil" {
+			if err != nil && strings.Contains(err.Error(), "redis: nil") {
 				respondJSON(w, http.StatusBadRequest, &ErrorMessage{
 					Message: "Your token is expired",
 					Status:  http.StatusBadRequest,
@@ -45,6 +47,7 @@ func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 				})
 				return
 			}
+			fmt.Println(userId)
 			ctx := context.WithValue(r.Context(), "user_id", userId)
 			r = r.WithContext(ctx)
 		}

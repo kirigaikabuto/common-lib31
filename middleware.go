@@ -18,6 +18,11 @@ func NewMiddleware(rS *RedisStore) Middleware {
 	return &middleware{redisStore: rS}
 }
 
+type ErrorMessage struct {
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
+
 func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Authorization")
@@ -27,14 +32,16 @@ func (m *middleware) LoginMiddleware(fn http.HandlerFunc) http.HandlerFunc {
 		}
 		if key != "" {
 			userId, err := m.redisStore.GetValue(key)
-			if err != nil {
-				errorMessage := err.Error()
-				if errorMessage == "redis: nil" {
-					errorMessage = "Your access key is expired"
-				}
-				respondJSON(w, http.StatusInternalServerError, HttpError{
-					Message:    errorMessage,
-					StatusCode: http.StatusInternalServerError,
+			if err != nil && err.Error() == "redis: nil" {
+				respondJSON(w, http.StatusBadRequest, &ErrorMessage{
+					Message: "Your token is expired",
+					Status:  http.StatusBadRequest,
+				})
+				return
+			} else if err != nil {
+				respondJSON(w, http.StatusBadRequest, &ErrorMessage{
+					Message: err.Error(),
+					Status:  http.StatusBadRequest,
 				})
 				return
 			}
